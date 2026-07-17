@@ -32,8 +32,11 @@ Conclusion: build tiers on **pause-based, per-utterance** decoding, not streamin
 - **Draft timing: on-pause** (local tiny decodes the finished utterance ~0.3s after
   you stop). No during-speech streaming — simpler, lower latency, trivial alignment.
 - **Core = 2 tiers** (local draft + remote large-v3 final). The turbo "middle tier"
-  is deferred (it lands ~2.5s, near the large-v3 final, so it's mostly redundant
-  except on long utterances).
+  is **dropped from v1** (confirmed) — it lands ~2.5s, near the large-v3 final, so
+  it's mostly redundant; kept only as an optional future add for long utterances.
+- **Full session logging** to disk, independent of the TUI: every utterance's audio
+  span, draft text, and final text (with per-tier latencies) is persisted for later
+  evaluation/testing. The TUI's scrollback is display only — the log is the record.
 
 ## Tiers
 
@@ -87,6 +90,22 @@ Reuses the `gpu-server.sh` env (LD_LIBRARY_PATH for CUDA). New remote mode
   marks tier (e.g. `·` draft, ` ` final) and network state.
 - Handle terminal width (truncate/wrap the live region); degrade gracefully if not a TTY (append-only).
 
+## Session logging (first-class, for evaluation/testing)
+
+The TUI shows/scrolls text for the human; the **log is the complete, durable record**,
+written regardless of what scrolls off screen. Every session writes to `recordings/<ts>.`:
+
+- `.s16le` — full raw audio (as today via `RECORD`), so any utterance can be re-decoded later.
+- `.jsonl` — one record per utterance:
+  `{"id":N, "start":s, "end":e, "draft":{"text":..,"latency":..}, "final":{"text":..,"latency":..}}`
+  where `start`/`end` are audio-time spans — slice the `.s16le` at that span to
+  re-decode utterance N with any model.
+- `.txt` — the final-tier transcript, for quick reading.
+
+This makes evaluation a **slice-and-reeval**: pull utterance N's span from the recording
+and run it through any model/config with the existing `reeval.sh` / `bench_*` tools.
+Logging is **not optional** and lands in M2, not deferred.
+
 ## Concurrency
 
 Threads in `tiered.py`, communicating via queues, all events tagged with `id`:
@@ -115,11 +134,12 @@ Display orders by `id` regardless of arrival order.
 - **M1** Tier 1 + TUI only (local tiny, no remote): capture → segment → draft → mutable
   display. Proves the display model end-to-end.
 - **M2** Remote `utterance_server.py` + `gpu-server.sh --serve-utterances`; `tiered.py`
-  sends utterances, receives finals, overwrites drafts. **Full 2-tier system.**
-- **M3** Recording + per-tier transcript logs (reuse `RECORD`); latency instrumentation
-  (measure draft-latency and final-latency per utterance, like `bench_latency.py`).
-- **M4** *(optional)* Tier 2 turbo mid-utterance refinement for long utterances; apply
-  a post-correction map at the final tier for the residual acoustic errors (гид→гит etc.).
+  sends utterances, receives finals, overwrites drafts, **and writes the full session
+  log** (`.s16le` / `.jsonl` / `.txt`). **Full 2-tier system.**
+- **M3** Analysis on the logs: per-utterance draft/final latency + draft-vs-final diff;
+  1×-paced replay validation harness (feed a recording through `tiered.py`).
+- **M4** *(deferred by decision, optional)* Tier 2 turbo mid-utterance refinement for
+  long utterances; post-correction map at the final tier for residual errors (гид→гит etc.).
 - **M5** *(optional)* TUI polish: colors per tier, scrollback, copy, width/resize handling.
 
 ## Open questions / risks
