@@ -116,16 +116,19 @@ finalize on Ctrl-C) and `.log` (a config header + the transcript). Disable with
 Ctrl-C exits cleanly: `ssh`/`tee` ignore SIGINT so only `ffmpeg` stops, the remote
 flushes its last words over EOF, and the pipeline drains without broken-pipe errors.
 
-Replay a capture through the pipeline offline to compare configs (no mic needed —
-raw PCM feeds `--stdin` directly):
+Re-evaluate a capture offline with `reeval.sh` to compare configs (no mic — raw PCM
+feeds `--stdin` directly). Each run prints the transcript and saves it to
+`recordings/<name>.<label>.txt`, so you can `diff` runs instead of eyeballing them:
 
 ```fish
-./replay.sh recordings/20260718-0057.s16le --model small     # local CPU
-cat recordings/20260718-0057.s16le | ssh gpu-host 'cd ~/src/whisper-stt && ./gpu-server.sh'  # GPU (turbo)
-ffmpeg -f s16le -ar 16000 -ac 1 -i recordings/20260718-0057.s16le out.wav  # to listen
+GPU_HOST=nb-home ./reeval.sh recordings/X.s16le                       # baseline turbo (GPU)
+LABEL=glossary GPU_HOST=nb-home ./reeval.sh recordings/X.s16le --glossary glossary.txt
+diff recordings/X.baseline.txt recordings/X.glossary.txt             # compare the two
+./reeval.sh --local recordings/X.s16le --model small                 # on this laptop's CPU
+ffmpeg -f s16le -ar 16000 -ac 1 -i recordings/X.s16le out.wav        # to just listen
 ```
 
-Replay feeds audio as fast as it reads, so it's for comparing *transcription
+Reeval feeds audio as fast as it reads, so it's for comparing *transcription
 quality* across settings, not live latency.
 
 ## Possible upgrades
