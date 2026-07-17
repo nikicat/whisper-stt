@@ -108,9 +108,13 @@ ffmpeg -i some.wav -ac 1 -ar 16000 -f s16le - | ./gpu-server.sh --model large-v3
 
 ## Recording & offline replay
 
-`stream-remote.sh` saves the exact audio it sends to the GPU as raw PCM under
-`recordings/<timestamp>.s16le` (crash-safe — no header to finalize on Ctrl-C).
-Disable with `RECORD=0 ./stream-remote.sh ...`.
+`stream-remote.sh` saves each session as a paired set under `recordings/<timestamp>.`:
+`.s16le` (the exact audio sent to the GPU, raw PCM — crash-safe, no header to
+finalize on Ctrl-C) and `.log` (a config header + the transcript). Disable with
+`RECORD=0 ./stream-remote.sh ...`.
+
+Ctrl-C exits cleanly: `ssh`/`tee` ignore SIGINT so only `ffmpeg` stops, the remote
+flushes its last words over EOF, and the pipeline drains without broken-pipe errors.
 
 Replay a capture through the pipeline offline to compare configs (no mic needed —
 raw PCM feeds `--stdin` directly):

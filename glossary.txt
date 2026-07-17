@@ -3,10 +3,15 @@
 # These are fed to Whisper as an initial_prompt to bias spelling.
 # Keep the list focused (~50-80 terms) — Whisper only reads ~224 tokens of prompt.
 
+git
 commit
 merge
 rebase
 pull request
+code review
+inline
+review
+task
 branch
 repository
 deploy
