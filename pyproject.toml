@@ -10,6 +10,14 @@ dependencies = [
     "numpy>=1.26",
 ]
 
+[project.optional-dependencies]
+# GPU box only: CUDA 12 + cuDNN 9 runtime libs that CTranslate2 4.x loads at
+# runtime. Install with `uv sync --extra cuda`. No system CUDA toolkit needed.
+cuda = [
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12>=9",
+]
+
 [tool.uv]
 # Keep the resolver from wandering onto pre-release ML builds.
 prerelease = "disallow"

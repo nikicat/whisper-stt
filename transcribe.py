@@ -53,6 +53,18 @@ def start_ffmpeg(source: str) -> subprocess.Popen:
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
 
 
+def read_exact(reader, n: int) -> bytes:
+    """Read exactly n bytes, looping over short reads. Returns <n bytes only at
+    true EOF. (An unbuffered pipe / ssh stdin can hand back partial frames.)"""
+    buf = b""
+    while len(buf) < n:
+        chunk = reader.read(n - len(buf))
+        if not chunk:
+            return buf
+        buf += chunk
+    return buf
+
+
 def transcriber(model, work_q, args, initial_prompt):
     """Worker: pull finished utterances (float32 audio) off the queue and print."""
     while True:
@@ -139,7 +151,7 @@ def main():
 
     try:
         while not stop.is_set():
-            frame = proc.stdout.read(FRAME_BYTES)
+            frame = read_exact(proc.stdout, FRAME_BYTES)
             if len(frame) < FRAME_BYTES:  # ffmpeg died / EOF
                 err = proc.stderr.read().decode(errors="replace")
                 if err.strip():

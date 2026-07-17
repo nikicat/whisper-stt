@@ -59,8 +59,55 @@ Speak; each utterance is printed when you pause (~0.7 s of silence closes it):
 - The Iris Xe iGPU can offload the encoder via OpenVINO (more setup) — worth it only
   if CPU turbo proves too slow in practice.
 
+## Live word-by-word streaming — `streaming.py`
+
+`transcribe.py` prints a whole utterance when you pause. `streaming.py` prints words
+*progressively* as they're confirmed, using LocalAgreement-2 (the policy behind
+`ufal/whisper_streaming`, implemented in-repo — no extra dependency).
+
+```fish
+uv run python streaming.py --model small     # best quality that streams on CPU
+uv run python streaming.py --model base       # snappier fallback
+```
+
+**Why not turbo here?** Streaming re-runs the model on a rolling buffer every
+`--min-chunk` seconds, and Whisper's *encoder* always processes a fixed 30s window —
+turbo only shrinks the *decoder*, so each re-encode still costs a full large-encoder
+pass (~7-8s on this CPU → hopelessly behind). Streaming on CPU needs a small encoder;
+`base`/`small` keep up, turbo/medium/large do not.
+
+## Realtime turbo streaming via a remote GPU
+
+A CUDA GPU makes the fixed 30s encoder pass cheap (~0.2-0.4s on a GTX 1080), so
+**turbo streams in realtime**. Capture stays on the laptop; inference runs on the GPU
+box. Audio is piped over SSH (no ports, no extra protocol); text streams back:
+
+```
+[laptop] ffmpeg mic → PCM ──ssh stdin──▶ [GPU] streaming.py --stdin --device cuda → text ──stdout──▶ [laptop]
+```
+
+**On the GPU box (Arch):**
+```fish
+# 1. NVIDIA driver — verify the GPU is visible:
+nvidia-smi                 # if Pascal was dropped by the current driver,
+                           # install nvidia-580xx-dkms (AUR) instead of `nvidia`
+# 2. Clone + install with CUDA runtime libs (CUDA 12 + cuDNN 9 wheels; no system toolkit):
+git clone <repo> ~/src/whisper-stt && cd ~/src/whisper-stt
+uv sync --extra cuda
+# 3. Smoke-test CUDA locally before wiring SSH:
+ffmpeg -i some.wav -ac 1 -ar 16000 -f s16le - | ./gpu-server.sh --model large-v3-turbo
+```
+
+**From the laptop:**
+```fish
+./stream-remote.sh user@gpu-box --model large-v3-turbo --beam-size 5
+```
+`gpu-server.sh` points CTranslate2 at the wheel-provided CUDA libs and forces
+`--compute-type int8` (Pascal's DP4A path; avoid `float16`, which is crippled on the
+1080). Ctrl-C on the laptop closes the pipe and the remote shuts down cleanly.
+
 ## Possible upgrades
 
-- **Word-by-word streaming** (text appearing as you speak, not on pause): wrap the
-  model with `ufal/whisper_streaming`'s LocalAgreement policy.
 - **Type into the focused window**: pipe finalized text through `wtype`/`ydotool`.
+- **Persistent server** (reconnect, multiple clients, type-into-app): swap the SSH
+  pipe for a small WebSocket server wrapping the same `OnlineASR`.
