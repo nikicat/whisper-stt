@@ -99,8 +99,10 @@ class OnlineASR:
         self.audio = np.concatenate((self.audio, chunk))
 
     def _prompt(self):
-        ctx = " ".join(t for _, _, t in self.committed[-60:])
-        return (self.base_prompt + " " + ctx).strip() or None
+        # Glossary only, and only if explicitly enabled. Do NOT feed committed
+        # text back as a prompt: on a rolling re-decode the model tends to
+        # *continue* the prompt, which turns a hallucinated repeat into a loop.
+        return self.base_prompt or None
 
     def _run(self):
         segments, _ = self.model.transcribe(
@@ -110,7 +112,8 @@ class OnlineASR:
             beam_size=self.beam_size,
             word_timestamps=True,
             condition_on_previous_text=False,
-            vad_filter=False,
+            vad_filter=True,            # strip silence in the buffer -> no silence hallucinations
+            no_repeat_ngram_size=3,     # kill "директор директор ..." loops
             temperature=0.0,
         )
         words, seg_ends = [], []
@@ -167,7 +170,10 @@ def main():
     p.add_argument("--compute-type", default="int8")
     p.add_argument("--cpu-threads", type=int, default=0)
     p.add_argument("--beam-size", type=int, default=1, help="1 (greedy) keeps re-decodes fast enough to stream")
-    p.add_argument("--glossary", default=str(Path(__file__).parent / "glossary.txt"))
+    p.add_argument("--glossary", default="",
+                   help="term glossary to bias spelling via initial_prompt. OFF by default in "
+                        "streaming: the prompt tends to leak/loop on rolling re-decodes. Turbo "
+                        "handles the terms fine without it. Enable with e.g. --glossary glossary.txt")
     p.add_argument("--source", default="default")
     p.add_argument("--stdin", action="store_true",
                    help="read raw s16le 16kHz mono PCM from stdin instead of the mic "
@@ -187,7 +193,7 @@ def main():
     if args.language in ("", "auto"):
         args.language = None
 
-    base_prompt = load_glossary(Path(args.glossary))
+    base_prompt = load_glossary(Path(args.glossary)) if args.glossary else ""
 
     print(f"Loading model '{args.model}' ({args.device}/{args.compute_type})...", file=sys.stderr, flush=True)
     model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type, cpu_threads=args.cpu_threads)
