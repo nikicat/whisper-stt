@@ -11,5 +11,11 @@ cd "$(dirname "$0")"
 LIBS="$(uv run python -c 'import os,nvidia.cublas.lib,nvidia.cudnn.lib; print(os.path.dirname(nvidia.cublas.lib.__file__)+":"+os.path.dirname(nvidia.cudnn.lib.__file__))' 2>/dev/null || true)"
 [ -n "$LIBS" ] && export LD_LIBRARY_PATH="${LIBS}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
+# `--selftest` runs the CUDA smoke test (no audio needed) instead of listening.
+if [ "${1:-}" = "--selftest" ]; then
+    shift
+    exec uv run python doctor.py "$@"
+fi
+
 # int8 uses the 1080's DP4A path (Pascal FP16 is crippled, so avoid float16).
 exec uv run python streaming.py --stdin --device cuda --compute-type int8 "$@"
