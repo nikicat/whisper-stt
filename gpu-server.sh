@@ -23,5 +23,11 @@ if [ "${1:-}" = "--bench" ]; then
     exec uv run python bench_stream.py "$@"
 fi
 
+# `--latency` replays stdin PCM at 1x and measures spoken->shown delay per word.
+if [ "${1:-}" = "--latency" ]; then
+    shift
+    exec uv run python bench_latency.py "$@"
+fi
+
 # int8 uses the 1080's DP4A path (Pascal FP16 is crippled, so avoid float16).
 exec uv run python streaming.py --stdin --device cuda --compute-type int8 "$@"
