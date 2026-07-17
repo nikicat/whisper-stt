@@ -1,0 +1,73 @@
+# English tech terms you use inside Russian speech.
+# One term per line. Lines starting with # and blank lines are ignored.
+# These are fed to Whisper as an initial_prompt to bias spelling.
+# Keep the list focused (~50-80 terms) — Whisper only reads ~224 tokens of prompt.
+
+commit
+merge
+rebase
+pull request
+branch
+repository
+deploy
+build
+rollback
+staging
+production
+endpoint
+backend
+frontend
+database
+query
+schema
+migration
+cache
+container
+Docker
+Kubernetes
+pod
+cluster
+pipeline
+webhook
+latency
+throughput
+async
+callback
+thread
+mutex
+buffer
+stream
+token
+embedding
+inference
+framework
+library
+dependency
+package
+runtime
+compiler
+kernel
+driver
+socket
+proxy
+load balancer
+timeout
+retry
+throttle
+feature flag
+Redis
+Postgres
+nginx
+systemd
+Vulkan
+OpenVINO
+Whisper
+GPU
+CPU
+API
+SDK
+CLI
+JSON
+JWT
+OAuth
+TLS
