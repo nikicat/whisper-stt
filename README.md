@@ -121,7 +121,7 @@ raw PCM feeds `--stdin` directly):
 
 ```fish
 ./replay.sh recordings/20260718-0057.s16le --model small     # local CPU
-cat recordings/20260718-0057.s16le | ssh gpu-host './gpu-server.sh'   # on the GPU (turbo)
+cat recordings/20260718-0057.s16le | ssh gpu-host 'cd ~/src/whisper-stt && ./gpu-server.sh'  # GPU (turbo)
 ffmpeg -f s16le -ar 16000 -ac 1 -i recordings/20260718-0057.s16le out.wav  # to listen
 ```
 

@@ -5,8 +5,8 @@
 #   ./replay.sh recordings/FILE.s16le [streaming.py args...]
 #   ./replay.sh recordings/FILE.s16le --model small --vad-aggressiveness 3
 #
-# Replay on the GPU box instead (turbo):
-#   cat recordings/FILE.s16le | ssh gpu-host './gpu-server.sh'
+# Replay on the GPU box instead (turbo) — cd first, ssh starts in the home dir:
+#   cat recordings/FILE.s16le | ssh gpu-host 'cd ~/src/whisper-stt && ./gpu-server.sh'
 # Listen to it:
 #   ffmpeg -f s16le -ar 16000 -ac 1 -i recordings/FILE.s16le recordings/FILE.wav
 #
