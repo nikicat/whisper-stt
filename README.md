@@ -106,6 +106,24 @@ ffmpeg -i some.wav -ac 1 -ar 16000 -f s16le - | ./gpu-server.sh --model large-v3
 `--compute-type int8` (Pascal's DP4A path; avoid `float16`, which is crippled on the
 1080). Ctrl-C on the laptop closes the pipe and the remote shuts down cleanly.
 
+## Recording & offline replay
+
+`stream-remote.sh` saves the exact audio it sends to the GPU as raw PCM under
+`recordings/<timestamp>.s16le` (crash-safe — no header to finalize on Ctrl-C).
+Disable with `RECORD=0 ./stream-remote.sh ...`.
+
+Replay a capture through the pipeline offline to compare configs (no mic needed —
+raw PCM feeds `--stdin` directly):
+
+```fish
+./replay.sh recordings/20260718-0057.s16le --model small     # local CPU
+cat recordings/20260718-0057.s16le | ssh gpu-host './gpu-server.sh'   # on the GPU (turbo)
+ffmpeg -f s16le -ar 16000 -ac 1 -i recordings/20260718-0057.s16le out.wav  # to listen
+```
+
+Replay feeds audio as fast as it reads, so it's for comparing *transcription
+quality* across settings, not live latency.
+
 ## Possible upgrades
 
 - **Type into the focused window**: pipe finalized text through `wtype`/`ydotool`.

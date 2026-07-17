@@ -16,5 +16,18 @@ host="${1:?usage: stream-remote.sh user@gpu-host [args...]}"; shift || true
 # \$HOME is escaped so it expands on the GPU box, not the laptop.
 remote_dir="${REMOTE_DIR:-\$HOME/src/whisper-stt}"
 
-ffmpeg -hide_banner -loglevel error -f pulse -i default -ac 1 -ar 16000 -f s16le - \
+# Also save the exact audio sent to the GPU as raw PCM (crash-safe: no header to
+# finalize on Ctrl-C, and re-feedable directly via ./replay.sh). Disable: RECORD=0.
+rec_args=()
+if [ "${RECORD:-1}" != "0" ]; then
+  mkdir -p recordings
+  rec="recordings/$(date +%Y%m%d-%H%M%S).s16le"
+  rec_args=(-ac 1 -ar 16000 -f s16le "$rec")
+  echo "recording -> $rec" >&2
+fi
+
+# Dual output from one capture: output 1 -> ssh pipe, output 2 -> recording file.
+ffmpeg -hide_banner -loglevel error -f pulse -i default \
+  -ac 1 -ar 16000 -f s16le - \
+  "${rec_args[@]}" \
   | ssh "$host" "cd $remote_dir && ./gpu-server.sh $*"
