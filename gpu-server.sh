@@ -17,5 +17,11 @@ if [ "${1:-}" = "--selftest" ]; then
     exec uv run python doctor.py "$@"
 fi
 
+# `--bench` measures streaming decode speed from stdin PCM: --bench MODEL [MIN_CHUNK] [BEAM]
+if [ "${1:-}" = "--bench" ]; then
+    shift
+    exec uv run python bench_stream.py "$@"
+fi
+
 # int8 uses the 1080's DP4A path (Pascal FP16 is crippled, so avoid float16).
 exec uv run python streaming.py --stdin --device cuda --compute-type int8 "$@"
